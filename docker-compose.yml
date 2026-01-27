@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MEM0_API_KEY=${MEM0_API_KEY}
+      - MEM0_PROJECT_ID=${MEM0_PROJECT_ID}
+      - VECTOR_DB_TYPE=${VECTOR_DB_TYPE:-chroma}
+      - CHROMA_PERSIST_DIR=/app/chroma_db
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:8000}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+      - MEMORY_COMPRESSION_THRESHOLD=${MEMORY_COMPRESSION_THRESHOLD:-50}
+      - MEMORY_SUMMARY_INTERVAL=${MEMORY_SUMMARY_INTERVAL:-10}
+      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS:-8000}
+      - FINE_TUNING_ENABLED=${FINE_TUNING_ENABLED:-true}
+      - FINE_TUNING_DATA_DIR=/app/fine_tuning_data
+      - USE_CUSTOM_EMBEDDINGS=${USE_CUSTOM_EMBEDDINGS:-false}
+    volumes:
+      - ./packages/backend:/app
+      - ./chroma_db:/app/chroma_db
+      - ./fine_tuning_data:/app/fine_tuning_data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - aware-ai-network
+
+  frontend:
+    build:
+      context: ./packages/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${BACKEND_URL:-http://localhost:8000}
+    volumes:
+      - ./packages/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - aware-ai-network
+
+networks:
+  aware-ai-network:
+    driver: bridge

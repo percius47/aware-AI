@@ -1,0 +1,8 @@
+# Optional dependencies for Aware AI
+# These require additional setup or system dependencies
+
+# Supabase - For persistent conversation threads
+# Requires Rust compiler (rustup) to build pydantic-core on some systems
+# Install with: pip install supabase>=2.0.0
+# Or install Rust first: https://rustup.rs/
+supabase>=2.0.0
