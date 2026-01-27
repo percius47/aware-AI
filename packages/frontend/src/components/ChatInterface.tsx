@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import MessageBubble from './MessageBubble'
-import { Send, Loader2, Plus, FileText, X } from 'lucide-react'
+import { Send, Loader2, Plus, FileText } from 'lucide-react'
 import { chatAPI, uploadDocument } from '@/lib/api'
+import toast from 'react-hot-toast'
 
 // Console logging helper
 const log = (category: string, message: string, data?: any) => {
@@ -40,9 +41,10 @@ export default function ChatInterface({
   const [isLoading, setIsLoading] = useState(false)
   const [streamingMessage, setStreamingMessage] = useState('')
   const [showAttachMenu, setShowAttachMenu] = useState(false)
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -56,6 +58,16 @@ export default function ChatInterface({
   useEffect(() => {
     scrollToBottom()
   }, [messages, streamingMessage])
+
+  // Listen for focus input event from keyboard shortcuts
+  useEffect(() => {
+    const handleFocusInput = () => {
+      inputRef.current?.focus()
+    }
+    
+    window.addEventListener('focusChatInput', handleFocusInput)
+    return () => window.removeEventListener('focusChatInput', handleFocusInput)
+  }, [])
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
@@ -153,6 +165,7 @@ export default function ChatInterface({
     } catch (error) {
       log('CHAT', 'ERROR occurred:', error)
       console.error('Chat error:', error)
+      toast.error('Failed to send message. Please try again.')
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: 'Sorry, I encountered an error. Please try again.',
@@ -171,20 +184,24 @@ export default function ChatInterface({
     if (!file) return
 
     setShowAttachMenu(false)
-    setUploadStatus('Uploading...')
+    setIsUploading(true)
+    
+    const uploadToast = toast.loading(`Uploading ${file.name}...`)
 
     try {
       const result = await uploadDocument(file)
-      setUploadStatus(`Uploaded: ${result.chunks} chunks processed`)
-      setTimeout(() => setUploadStatus(null), 3000)
+      toast.success(
+        `Document uploaded successfully! The assistant will now remember these details. (${result.chunks} chunks processed)`,
+        { id: uploadToast, duration: 5000 }
+      )
     } catch (error) {
-      setUploadStatus('Upload failed')
-      setTimeout(() => setUploadStatus(null), 3000)
-    }
-    
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      toast.error('Failed to upload document. Please try again.', { id: uploadToast })
+    } finally {
+      setIsUploading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -192,8 +209,12 @@ export default function ChatInterface({
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            Start a conversation! I remember our past interactions and can help you with questions.
+          <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
+            <p className="text-lg mb-2">Start a conversation!</p>
+            <p className="text-sm">I remember our past interactions and can help you with questions.</p>
+            <p className="text-xs mt-4 text-gray-400 dark:text-gray-500">
+              Tip: Upload documents to add them to my knowledge base.
+            </p>
           </div>
         )}
         
@@ -201,6 +222,19 @@ export default function ChatInterface({
           <MessageBubble key={idx} message={msg} />
         ))}
         
+        {/* Show typing indicator when loading but no streaming content yet */}
+        {isLoading && !streamingMessage && (
+          <MessageBubble 
+            message={{
+              role: 'assistant',
+              content: '',
+              timestamp: new Date().toISOString()
+            }}
+            isTyping
+          />
+        )}
+        
+        {/* Show streaming message once content starts arriving */}
         {streamingMessage && (
           <MessageBubble 
             message={{
@@ -215,14 +249,7 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Upload status notification */}
-      {uploadStatus && (
-        <div className="px-4 py-2 bg-blue-50 text-blue-700 text-sm border-t">
-          {uploadStatus}
-        </div>
-      )}
-
-      <div className="border-t p-4">
+      <div className="border-t dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
         <div className="flex gap-2 items-center relative">
           {/* Hidden file input */}
           <input
@@ -237,7 +264,8 @@ export default function ChatInterface({
           <div className="relative">
             <button
               onClick={() => setShowAttachMenu(!showAttachMenu)}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              disabled={isUploading}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
               title="Add attachment"
             >
               <Plus className="w-5 h-5" />
@@ -245,12 +273,12 @@ export default function ChatInterface({
             
             {/* Attachment menu dropdown */}
             {showAttachMenu && (
-              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border py-1 min-w-[160px] z-10">
+              <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-1 min-w-[160px] z-10">
                 <button
                   onClick={() => {
                     fileInputRef.current?.click()
                   }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                 >
                   <FileText className="w-4 h-4" />
                   Upload Document
@@ -259,19 +287,24 @@ export default function ChatInterface({
             )}
           </div>
           
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type your message..."
-            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 bg-white"
-            disabled={isLoading}
-          />
+          <div className="flex-1 relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="Type your message..."
+              className="w-full px-4 py-2 pr-16 border dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500"
+              disabled={isLoading}
+              title="Focus with Ctrl+/"
+            />
+            <kbd className="hidden md:flex items-center gap-0.5 absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-400 pointer-events-none">⌘<span>+</span>/</kbd>
+          </div>
           <button
             onClick={handleSend}
             disabled={isLoading || !input.trim()}
-            className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 md:px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

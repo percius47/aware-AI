@@ -56,10 +56,23 @@ async def chat(request: ChatRequest):
         logger.info(f"  └─ Conversation ID: {conversation_id[:8]}...")
         logger.info(f"  └─ Message: \"{truncate_text(request.message, 50)}\"")
         logger.info(f"  └─ Stream: {request.stream}")
-        logger.info(f"  └─ New conversation: {is_new_conversation}")
+        logger.info(f"  └─ New conversation (in memory): {is_new_conversation}")
         
         # Initialize conversation if new
         user_id = "default_user"  # In production, get from auth
+        
+        # If not in memory but conversation_id was provided, check persistent storage first
+        if is_new_conversation and request.conversation_id:
+            existing_thread = await conversation_service.get_thread(conversation_id)
+            if existing_thread:
+                # Load existing messages into in-memory cache
+                conversations[conversation_id] = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in existing_thread.get("messages", [])
+                ]
+                is_new_conversation = False
+                logger.info(f"  └─ Loaded existing thread from storage: {conversation_id[:8]}... ({len(conversations[conversation_id])} messages)")
+        
         if is_new_conversation:
             session_stats["conversations_started"] += 1
             

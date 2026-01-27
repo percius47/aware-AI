@@ -1,230 +1,511 @@
-# Aware AI Architecture
+# 🏗️ Aware AI - System Architecture
 
-## System Overview
+## Overview
 
-Aware AI is a self-aware RAG (Retrieval-Augmented Generation) system with intelligent memory management. The system is built as a monorepo with a FastAPI backend and Next.js frontend.
+Aware AI is a production-grade conversational AI system that combines **Retrieval-Augmented Generation (RAG)** with **intelligent memory management**. The system is designed as a modern monorepo with clear separation of concerns between the frontend, backend, and external services.
 
-## Architecture Diagram
+---
+
+## High-Level Architecture
 
 ```
-┌─────────────┐
-│   Browser   │
-│  (Next.js)  │
-└──────┬──────┘
-       │ HTTP/WebSocket
-       ▼
-┌─────────────────────────────────────┐
-│         FastAPI Backend              │
-│  ┌───────────────────────────────┐  │
-│  │      API Routes               │  │
-│  │  - /api/chat                  │  │
-│  │  - /api/upload                │  │
-│  │  - /api/memory/*              │  │
-│  └───────────────────────────────┘  │
-│  ┌───────────────────────────────┐  │
-│  │      Services Layer           │  │
-│  │  - LLM Service                │  │
-│  │  - RAG Service                │  │
-│  │  - Memory Service             │  │
-│  │  - Embedding Service          │  │
-│  │  - Document Processor         │  │
-│  └───────────────────────────────┘  │
-└──────┬───────────────────────────────┘
-       │
-       ├──► OpenAI API (LLM)
-       ├──► Mem0 (Memory)
-       ├──► ChromaDB (Vector Store)
-       └──► File System (Documents)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT LAYER                                     │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │                        Next.js 14 (App Router)                         │  │
+│  │                                                                        │  │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────────┐   │  │
+│  │  │   React    │  │  Tailwind  │  │    SSE     │  │    Theme       │   │  │
+│  │  │ Components │  │    CSS     │  │   Client   │  │   Provider     │   │  │
+│  │  └────────────┘  └────────────┘  └────────────┘  └────────────────┘   │  │
+│  │                                                                        │  │
+│  │  Components: ChatInterface │ MessageBubble │ ThreadSidebar │ Upload   │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                              Deployed on: Vercel                              │
+└───────────────────────────────────┬──────────────────────────────────────────┘
+                                    │
+                          HTTPS / Server-Sent Events
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              API LAYER                                        │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │                      FastAPI Application                               │  │
+│  │                                                                        │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
+│  │  │                      API Routes                                  │  │  │
+│  │  │  POST /api/chat ──────► SSE Streaming Response                  │  │  │
+│  │  │  POST /api/upload ────► Document Processing                     │  │  │
+│  │  │  GET  /api/threads ───► Thread Listing                          │  │  │
+│  │  │  GET  /api/stats ─────► Session Statistics                      │  │  │
+│  │  │  WS   /ws/chat ───────► WebSocket Real-time                     │  │  │
+│  │  └─────────────────────────────────────────────────────────────────┘  │  │
+│  │                                                                        │  │
+│  │  Middleware: CORS │ Request Logging │ Error Handling                  │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+│                            Deployed on: AWS App Runner                        │
+└───────────────────────────────────┬──────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            SERVICE LAYER                                      │
+│                                                                               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │  LLM Service │  │  RAG Service │  │   Memory     │  │   Conversation   │  │
+│  │              │  │              │  │   Service    │  │     Service      │  │
+│  │  • OpenAI    │  │  • ChromaDB  │  │              │  │                  │  │
+│  │  • Streaming │  │  • Embedding │  │  • Mem0      │  │  • Supabase      │  │
+│  │  • Context   │  │  • Search    │  │  • Search    │  │  • Persistence   │  │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘  │
+│         │                 │                 │                    │            │
+│  ┌──────┴───────┐  ┌──────┴───────┐  ┌──────┴───────┐  ┌────────┴─────────┐  │
+│  │  Embedding   │  │   Document   │  │    Memory    │  │   Fine-tuning    │  │
+│  │   Service    │  │  Processor   │  │ Compression  │  │     Service      │  │
+│  │              │  │              │  │              │  │                  │  │
+│  │  • OpenAI    │  │  • PDF       │  │  • LLM       │  │  • Data Prep     │  │
+│  │  • Custom    │  │  • DOCX      │  │  • Threshold │  │  • Job Mgmt      │  │
+│  │  • Vectors   │  │  • Markdown  │  │  • Summary   │  │  • Monitoring    │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────────┘  │
+│                                                                               │
+└───────────────────────────────────┬──────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          EXTERNAL SERVICES                                    │
+│                                                                               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │   OpenAI     │  │   ChromaDB   │  │     Mem0     │  │    Supabase      │  │
+│  │              │  │              │  │              │  │                  │  │
+│  │  GPT-4       │  │  Vector DB   │  │   Memory     │  │   PostgreSQL     │  │
+│  │  Embeddings  │  │  Similarity  │  │   Storage    │  │   Threads DB     │  │
+│  │  Fine-tune   │  │  Search      │  │   Search     │  │   Real-time      │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────────┘  │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Components
+---
 
-### Backend (FastAPI)
+## Component Details
 
-#### Core Services
+### Frontend Components
 
-1. **LLM Service** (`app/services/llm_service.py`)
-   - OpenAI API integration
-   - Streaming and non-streaming response generation
-   - Temperature and parameter configuration
+#### 1. ChatInterface (`ChatInterface.tsx`)
+The main chat component handling user interactions.
 
-2. **RAG Service** (`app/services/rag_service.py`)
-   - ChromaDB vector store management
-   - Document embedding and storage
-   - Semantic search functionality
-   - Conversation history indexing
+**Responsibilities:**
+- Message state management with React hooks
+- SSE connection for streaming responses
+- Input handling with keyboard shortcuts
+- Document upload integration
+- Loading states and typing indicators
 
-3. **Memory Service** (`app/services/memory_service.py`)
-   - Mem0 integration for persistent memory
-   - Memory search and retrieval
-   - Memory management operations
-   - Fallback to local storage if Mem0 unavailable
+**Key Features:**
+```typescript
+- Real-time streaming via EventSource API
+- Optimistic UI updates
+- Auto-scroll to latest messages
+- File attachment handling
+- Focus management (Ctrl+/ shortcut)
+```
 
-4. **Embedding Service** (`app/services/embedding_service.py`)
-   - OpenAI embeddings
-   - Custom embedding models (sentence-transformers)
-   - Toggle between providers via configuration
+#### 2. MessageBubble (`MessageBubble.tsx`)
+Renders individual chat messages with rich formatting.
 
-5. **Document Processor** (`app/services/document_processor.py`)
-   - PDF processing (PyPDF2)
-   - DOCX processing (python-docx)
-   - Plain text processing
-   - Chunking and metadata extraction
+**Features:**
+- Markdown rendering via `react-markdown`
+- Code syntax highlighting with `react-syntax-highlighter` (One Dark theme)
+- Copy code button on code blocks
+- Copy full response button
+- Relative timestamps (hover to see)
+- Typing indicator animation
+- Dark mode support
 
-6. **Memory Compression Service** (`app/services/memory_compression.py`)
-   - Automatic memory summarization
-   - Threshold-based compression
-   - LLM-powered summarization
+#### 3. ThreadSidebar (`ThreadSidebar.tsx`)
+Manages conversation thread navigation.
 
-7. **Fine-tuning Service** (`app/services/fine_tuning_service.py`)
-   - Training data preparation (JSONL format)
-   - OpenAI fine-tuning job creation
-   - Job status monitoring
+**Features:**
+- Thread grouping by date (Today, Yesterday, Previous 7 Days, Older)
+- Mobile-responsive with slide-out animation
+- Thread deletion with confirmation
+- Keyboard shortcut hint (⌘+K)
+- Persistence status indicator
 
-#### API Layer
+#### 4. ThemeProvider (`ThemeProvider.tsx`)
+React Context for theme management.
 
-- **REST API** (`app/api/routes.py`)
-  - Chat endpoint with SSE streaming
-  - Document upload
-  - Memory operations
-  - Conversation management
+**Implementation:**
+```typescript
+- localStorage persistence
+- System preference detection
+- SSR-safe with fallback values
+- Applies 'dark' class to <html>
+```
 
-- **WebSocket** (`app/api/websocket.py`)
-  - Real-time chat communication
-  - Streaming responses
+---
 
-### Frontend (Next.js)
+### Backend Services
 
-#### Components
+#### 1. LLM Service (`llm_service.py`)
+Handles all OpenAI API interactions.
 
-1. **ChatInterface** (`src/components/ChatInterface.tsx`)
-   - Message state management
-   - Streaming response handling
-   - Input handling and submission
+```python
+class LLMService:
+    - generate_response()      # Non-streaming completion
+    - generate_stream()        # Streaming completion via SSE
+    - build_context()          # Construct prompts with memory + RAG
+```
 
-2. **MessageBubble** (`src/components/MessageBubble.tsx`)
-   - Message display
-   - Markdown rendering
-   - Streaming indicator
+**Configuration:**
+- Model: GPT-4 Turbo (configurable)
+- Temperature: 0.7 (configurable)
+- Max tokens: Dynamic based on context
 
-3. **DocumentUpload** (`src/components/DocumentUpload.tsx`)
-   - File upload UI
-   - Progress indication
-   - Success/error feedback
+#### 2. RAG Service (`rag_service.py`)
+Implements Retrieval-Augmented Generation.
 
-#### API Client
+```python
+class RAGService:
+    - add_document()           # Embed and store document chunks
+    - search()                 # Semantic similarity search
+    - index_conversation()     # Index chat history for retrieval
+```
 
-- **API Client** (`src/lib/api.ts`)
-  - Axios configuration
-  - Chat API methods
-  - Document upload
-  - Memory operations
+**Vector Storage:**
+- ChromaDB for local development
+- Pinecone support for production scale
 
-## Data Flow
+#### 3. Memory Service (`memory_service.py`)
+Manages persistent user memories via Mem0.
 
-### Chat Flow
+```python
+class MemoryService:
+    - add_memory()             # Store new memory
+    - search_memories()        # Semantic memory search
+    - get_all_memories()       # Retrieve user memories
+    - delete_memory()          # Remove specific memory
+```
 
-1. User sends message via frontend
-2. Frontend calls `/api/chat` endpoint
-3. Backend retrieves relevant memories from Mem0
-4. Backend searches knowledge base via RAG (ChromaDB)
-5. Context is built from memories + RAG results
-6. OpenAI LLM generates response with context
-7. Response is streamed back to frontend (SSE)
-8. Conversation is saved to memory and RAG
+**Fallback:**
+- Graceful degradation to in-memory storage if Mem0 unavailable
 
-### Document Processing Flow
+#### 4. Conversation Service (`conversation_service.py`)
+Handles conversation persistence with Supabase.
 
-1. User uploads document via frontend
-2. Frontend sends file to `/api/upload`
-3. Backend processes document (PDF/DOCX/text)
-4. Document is chunked and embedded
-5. Chunks are stored in ChromaDB vector store
-6. Success response returned to frontend
+```python
+class ConversationService:
+    - create_thread()          # Create new conversation
+    - add_message()            # Append message to thread
+    - get_thread()             # Retrieve thread with messages
+    - list_threads()           # Get all user threads
+    - delete_thread()          # Remove conversation
+    - generate_title()         # AI-generated thread titles
+```
 
-### Memory Compression Flow
+**Database Schema:**
+```sql
+-- threads table
+id: UUID PRIMARY KEY
+title: TEXT
+created_at: TIMESTAMP
+updated_at: TIMESTAMP
 
-1. Memory count reaches threshold
-2. Compression service is triggered
-3. Recent memories are summarized using LLM
-4. Summary is stored as new memory
-5. Old memories can be optionally deleted
+-- messages table
+id: UUID PRIMARY KEY
+thread_id: UUID REFERENCES threads
+role: TEXT ('user' | 'assistant')
+content: TEXT
+created_at: TIMESTAMP
+```
 
-## Data Storage
+#### 5. Document Processor (`document_processor.py`)
+Processes uploaded documents for RAG.
 
-### Vector Database (ChromaDB)
-- Stores document embeddings
-- Stores conversation embeddings for semantic search
-- Metadata includes: filename, page numbers, conversation IDs
+**Supported Formats:**
+| Format | Library | Features |
+|--------|---------|----------|
+| PDF | PyPDF2 | Text extraction, page numbers |
+| DOCX | python-docx | Paragraphs, formatting |
+| Markdown | Native | Headers, code blocks |
+| Plain Text | Native | Direct processing |
 
-### Memory Storage (Mem0)
-- Persistent user memories
-- Semantic searchable
-- Metadata includes: conversation IDs, timestamps
+**Processing Pipeline:**
+1. File type detection
+2. Content extraction
+3. Text chunking (500 tokens, 50 overlap)
+4. Metadata attachment
+5. Vector embedding
+6. ChromaDB storage
 
-### File System
-- Fine-tuning data (JSONL files)
-- ChromaDB persistence directory
-- Uploaded documents (optional)
+#### 6. Memory Compression (`memory_compression.py`)
+Manages memory optimization.
 
-## Configuration
+```python
+class MemoryCompressionService:
+    - should_compress()        # Check threshold
+    - compress_memories()      # Summarize via LLM
+    - cleanup_old_memories()   # Remove compressed originals
+```
 
-### Environment Variables
+**Algorithm:**
+1. Count total memories
+2. If > threshold (default: 100)
+3. Retrieve recent memories
+4. Generate LLM summary
+5. Store summary as new memory
+6. Optionally delete originals
 
-- **OpenAI**: API key, model selection, embedding model
-- **Mem0**: API key, project ID (optional)
-- **Vector DB**: Type (chroma/pinecone), configuration
-- **Memory**: Compression thresholds, summary intervals
-- **Fine-tuning**: Enabled flag, data directory
+#### 7. Embedding Service (`embedding_service.py`)
+Generates vector embeddings.
+
+**Providers:**
+- OpenAI `text-embedding-3-small` (default)
+- Custom sentence-transformers models
+
+```python
+class EmbeddingService:
+    - embed_text()             # Single text embedding
+    - embed_batch()            # Batch embeddings
+    - get_dimensions()         # Vector dimensions
+```
+
+---
+
+## Data Flows
+
+### Chat Message Flow
+
+```
+User Input
+    │
+    ▼
+┌─────────────────┐
+│  ChatInterface  │ ─── POST /api/chat ───►
+└─────────────────┘
+                                            ┌─────────────────────┐
+                                            │   API Route Handler │
+                                            │                     │
+                                            │  1. Validate input  │
+                                            │  2. Get/create      │
+                                            │     conversation    │
+                                            └──────────┬──────────┘
+                                                       │
+                    ┌──────────────────────────────────┼──────────────────┐
+                    ▼                                  ▼                  ▼
+            ┌──────────────┐                 ┌──────────────┐    ┌──────────────┐
+            │ Memory Search│                 │  RAG Search  │    │  Build       │
+            │ (Mem0)       │                 │  (ChromaDB)  │    │  Context     │
+            └──────────────┘                 └──────────────┘    └──────────────┘
+                    │                                  │                  │
+                    └──────────────────────────────────┴──────────────────┘
+                                                       │
+                                                       ▼
+                                            ┌─────────────────────┐
+                                            │   LLM Service       │
+                                            │   (OpenAI GPT-4)    │
+                                            │                     │
+                                            │   Stream tokens     │
+                                            └──────────┬──────────┘
+                                                       │
+                                              SSE Stream
+                                                       │
+                                                       ▼
+                                            ┌─────────────────────┐
+                                            │   Save to Supabase  │
+                                            │   Update memories   │
+                                            │   Index in RAG      │
+                                            └─────────────────────┘
+                                                       │
+                    ◄──────────────────────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│  MessageBubble  │ ─── Render streaming tokens
+└─────────────────┘
+```
+
+### Document Upload Flow
+
+```
+File Selection
+    │
+    ▼
+┌─────────────────┐
+│ DocumentUpload  │ ─── POST /api/upload (multipart) ───►
+└─────────────────┘
+                                            ┌─────────────────────┐
+                                            │  Document Processor │
+                                            │                     │
+                                            │  1. Detect format   │
+                                            │  2. Extract text    │
+                                            │  3. Chunk content   │
+                                            └──────────┬──────────┘
+                                                       │
+                                                       ▼
+                                            ┌─────────────────────┐
+                                            │  Embedding Service  │
+                                            │                     │
+                                            │  Generate vectors   │
+                                            │  for each chunk     │
+                                            └──────────┬──────────┘
+                                                       │
+                                                       ▼
+                                            ┌─────────────────────┐
+                                            │      ChromaDB       │
+                                            │                     │
+                                            │  Store embeddings   │
+                                            │  with metadata      │
+                                            └─────────────────────┘
+                                                       │
+                    ◄──────────────────────────────────┘
+    │
+    ▼
+┌─────────────────┐
+│  Toast Success  │
+└─────────────────┘
+```
+
+---
+
+## Technology Choices & Rationale
+
+### Why FastAPI?
+- **Async-first**: Native async/await support for I/O-bound operations
+- **Type Safety**: Pydantic integration for request/response validation
+- **Auto-documentation**: Swagger UI generated from code
+- **Performance**: One of the fastest Python frameworks
+
+### Why Next.js 14?
+- **App Router**: Modern React Server Components architecture
+- **Edge Runtime**: Optimal for Vercel deployment
+- **TypeScript**: First-class TypeScript support
+- **Built-in Optimizations**: Image, font, and script optimization
+
+### Why Supabase?
+- **PostgreSQL**: Robust relational database
+- **Real-time**: Built-in WebSocket subscriptions
+- **Auth Ready**: Easy to add authentication later
+- **Free Tier**: Generous free tier for development
+
+### Why Mem0?
+- **Semantic Memory**: More than key-value storage
+- **Search**: Vector-based memory retrieval
+- **Managed**: No infrastructure to maintain
+- **Fallback**: Graceful local fallback
+
+### Why ChromaDB?
+- **Embedded**: No separate server needed
+- **Python Native**: First-class Python support
+- **Fast**: Optimized for similarity search
+- **Portable**: Easy local development
+
+---
+
+## Deployment Architecture
+
+```
+                    ┌─────────────────────────────────────┐
+                    │              Internet               │
+                    └─────────────────┬───────────────────┘
+                                      │
+                    ┌─────────────────┴───────────────────┐
+                    │          Cloudflare / CDN           │
+                    └─────────────────┬───────────────────┘
+                                      │
+            ┌─────────────────────────┼─────────────────────────┐
+            │                         │                         │
+            ▼                         │                         ▼
+┌───────────────────────┐             │             ┌───────────────────────┐
+│       Vercel          │             │             │    AWS App Runner     │
+│                       │             │             │                       │
+│  ┌─────────────────┐  │             │             │  ┌─────────────────┐  │
+│  │   Next.js 14    │  │◄────────────┘────────────►│  │    FastAPI      │  │
+│  │   Static +      │  │        HTTPS/SSE          │  │    Container    │  │
+│  │   Edge Runtime  │  │                           │  │                 │  │
+│  └─────────────────┘  │                           │  └─────────────────┘  │
+│                       │                           │                       │
+│  Auto-deploy from     │                           │  Auto-deploy from     │
+│  GitHub main branch   │                           │  GitHub main branch   │
+└───────────────────────┘                           └───────────┬───────────┘
+                                                                │
+                    ┌───────────────────────────────────────────┤
+                    │                   │                       │
+                    ▼                   ▼                       ▼
+          ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────┐
+          │    Supabase     │ │     OpenAI      │ │        Mem0         │
+          │                 │ │                 │ │                     │
+          │  PostgreSQL     │ │  GPT-4 API      │ │  Memory Storage     │
+          │  (Managed)      │ │  Embeddings     │ │  (Managed)          │
+          └─────────────────┘ └─────────────────┘ └─────────────────────┘
+```
+
+---
 
 ## Security Considerations
 
-- API keys stored in environment variables
-- CORS configuration for frontend
-- Input validation on all endpoints
-- File type validation for uploads
-- Error handling to prevent information leakage
+| Area | Implementation |
+|------|----------------|
+| **Secrets** | Environment variables, never in code |
+| **CORS** | Configured allowed origins |
+| **Input Validation** | Pydantic schemas on all endpoints |
+| **File Upload** | Type validation, size limits |
+| **API Keys** | Server-side only, never exposed to client |
 
-## Scalability
+---
 
-### Current Limitations
-- In-memory conversation storage (should use database)
-- Single ChromaDB instance (can scale to distributed)
-- No load balancing (single backend instance)
+## Monitoring & Observability
 
-### Future Improvements
-- Database for conversation persistence
-- Redis for caching
-- Distributed vector database
-- Load balancing and horizontal scaling
-- Rate limiting and request queuing
+| Metric | Source |
+|--------|--------|
+| **API Latency** | FastAPI middleware |
+| **Error Rates** | Structured logging |
+| **Token Usage** | OpenAI API tracking |
+| **Memory Count** | Mem0 dashboard |
+| **Database** | Supabase dashboard |
 
-## Deployment
+---
 
-### Docker Compose
-- Backend and frontend services
-- Shared network for communication
-- Volume mounts for data persistence
-- Environment variable injection
+## Future Enhancements
 
-### Production Considerations
-- Use production-grade database
-- Implement proper authentication
-- Add rate limiting
-- Set up monitoring and logging
-- Configure backup strategies
-- Use managed services for vector DB and memory
+- [ ] User authentication (Supabase Auth)
+- [ ] Rate limiting middleware
+- [ ] Redis caching layer
+- [ ] Distributed vector database (Pinecone)
+- [ ] Webhook integrations
+- [ ] Multi-user support
+- [ ] Analytics dashboard
+- [ ] A/B testing for prompts
 
-## Development Workflow
+---
 
-1. Backend development: FastAPI with hot reload
-2. Frontend development: Next.js with hot reload
-3. Docker: Full stack orchestration
-4. Testing: Unit tests for services, integration tests for API
+## Local Development
 
-## Monitoring
+```bash
+# Terminal 1 - Backend
+cd packages/backend
+source venv/bin/activate
+uvicorn app.main:app --reload --port 8000
 
-- Health check endpoint: `/health`
-- API documentation: `/docs`
-- Logging: Structured logging (to be implemented)
-- Metrics: Request/response metrics (to be implemented)
+# Terminal 2 - Frontend
+cd packages/frontend
+npm run dev
+```
+
+**Environment Variables Required:**
+```env
+OPENAI_API_KEY=sk-...
+SUPABASE_URL=https://...
+SUPABASE_KEY=...
+```
+
+---
+
+## References
+
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Next.js 14 App Router](https://nextjs.org/docs/app)
+- [OpenAI API Reference](https://platform.openai.com/docs)
+- [Mem0 Documentation](https://docs.mem0.ai/)
+- [ChromaDB Guide](https://docs.trychroma.com/)
+- [Supabase Documentation](https://supabase.com/docs)
+- [Tailwind CSS](https://tailwindcss.com/docs)
