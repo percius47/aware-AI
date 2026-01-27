@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, MessageSquare, Trash2, ChevronRight } from 'lucide-react'
+import { API_BASE } from '@/lib/api'
 
 interface Thread {
   id: string
@@ -62,7 +63,7 @@ export default function ThreadSidebar({
   // Fetch threads from backend
   const fetchThreads = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/threads')
+      const response = await fetch(`${API_BASE}/api/threads`)
       if (response.ok) {
         const data = await response.json()
         setThreads(data.threads || [])
@@ -87,7 +88,7 @@ export default function ThreadSidebar({
     if (!confirm('Delete this conversation?')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/threads/${threadId}`, {
+      const response = await fetch(`${API_BASE}/api/threads/${threadId}`, {
         method: 'DELETE'
       })
       

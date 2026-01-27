@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import ChatInterface from '@/components/ChatInterface'
 import ThreadSidebar from '@/components/ThreadSidebar'
 import { MessageSquare, Brain, FileText, Layers } from 'lucide-react'
+import { API_BASE } from '@/lib/api'
 
 interface SessionStats {
   session: {
@@ -36,7 +37,7 @@ export default function Home() {
   // Fetch stats from backend
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/stats')
+      const response = await fetch(`${API_BASE}/api/stats`)
       if (response.ok) {
         const data = await response.json()
         setStats(data)
@@ -67,7 +68,7 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/threads/${threadId}`)
+      const response = await fetch(`${API_BASE}/api/threads/${threadId}`)
       if (response.ok) {
         const thread = await response.json()
         setConversationId(threadId)
