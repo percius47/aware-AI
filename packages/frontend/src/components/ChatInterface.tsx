@@ -44,7 +44,7 @@ export default function ChatInterface({
   const [isUploading, setIsUploading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -288,18 +288,30 @@ export default function ChatInterface({
           </div>
           
           <div className="flex-1 relative">
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+                // Shift+Enter allows default behavior (new line)
+              }}
               placeholder="Type your message..."
-              className="w-full px-4 py-2 pr-16 border dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500"
+              className="w-full px-4 py-2 pr-16 border dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 resize-none min-h-[42px] max-h-[120px]"
               disabled={isLoading}
               title="Focus with Ctrl+/"
+              rows={1}
+              style={{ height: 'auto', overflowY: input.includes('\n') ? 'auto' : 'hidden' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement
+                target.style.height = 'auto'
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px'
+              }}
             />
-            <kbd className="hidden md:flex items-center gap-0.5 absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-400 pointer-events-none">⌘<span>+</span>/</kbd>
+            <kbd className="hidden md:flex items-center gap-0.5 absolute right-3 top-3 text-xs bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-400 pointer-events-none">⌘<span>+</span>/</kbd>
           </div>
           <button
             onClick={handleSend}
