@@ -22,13 +22,8 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4-turbo-preview"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     
-    # Mem0
-    MEM0_API_KEY: str = ""
-    MEM0_PROJECT_ID: str = ""
-    
-    # Vector DB
-    VECTOR_DB_TYPE: str = "chroma"
-    CHROMA_PERSIST_DIR: str = "./chroma_db"
+    # Vector DB (using Supabase pgvector)
+    VECTOR_DB_TYPE: str = "supabase"
     PINECONE_API_KEY: str = ""
     PINECONE_ENVIRONMENT: str = ""
     PINECONE_INDEX_NAME: str = "aware-ai"
@@ -70,10 +65,12 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    SUPABASE_JWT_SECRET: str = ""
     
     class Config:
         env_file = str(ENV_FILE) if ENV_FILE.exists() else ".env"
         case_sensitive = True
         populate_by_name = True  # Allow using both alias and field name
+        extra = "ignore"  # Ignore frontend-only env vars like NEXT_PUBLIC_*
 
 settings = Settings()

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, MessageSquare, Trash2, X, Brain, FileText, Layers } from 'lucide-react'
-import { API_BASE } from '@/lib/api'
+import { Plus, MessageSquare, Trash2, X, Brain, FileText, Layers, AlertTriangle, Loader2, LogOut } from 'lucide-react'
+import { API_BASE, fetchWithAuth } from '@/lib/api'
+import toast from 'react-hot-toast'
 
 interface Thread {
   id: string
@@ -35,6 +36,9 @@ interface ThreadSidebarProps {
   isOpen: boolean
   onClose: () => void
   stats?: SessionStats | null
+  onDataReset?: () => void
+  userEmail?: string | null
+  onSignOut?: () => void
 }
 
 // Helper to group threads by date
@@ -75,17 +79,21 @@ export default function ThreadSidebar({
   refreshTrigger = 0,
   isOpen,
   onClose,
-  stats
+  stats,
+  onDataReset,
+  userEmail,
+  onSignOut
 }: ThreadSidebarProps) {
   const [threads, setThreads] = useState<Thread[]>([])
   const [loading, setLoading] = useState(true)
   const [hoveredThread, setHoveredThread] = useState<string | null>(null)
   const [isPersistent, setIsPersistent] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
 
   // Fetch threads from backend
   const fetchThreads = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/threads`)
+      const response = await fetchWithAuth(`${API_BASE}/api/threads`)
       if (response.ok) {
         const data = await response.json()
         setThreads(data.threads || [])
@@ -110,7 +118,7 @@ export default function ThreadSidebar({
     if (!confirm('Delete this conversation?')) return
     
     try {
-      const response = await fetch(`${API_BASE}/api/threads/${threadId}`, {
+      const response = await fetchWithAuth(`${API_BASE}/api/threads/${threadId}`, {
         method: 'DELETE'
       })
       
@@ -142,6 +150,52 @@ export default function ThreadSidebar({
   const handleNewChat = () => {
     onNewChat()
     onClose()
+  }
+
+  // Handle reset all memories
+  const handleResetAll = async () => {
+    const confirmed = window.confirm(
+      'WARNING: This will permanently delete ALL your memories including:\n\n' +
+      '- All conversation threads and messages\n' +
+      '- All stored memories\n' +
+      '- All uploaded documents and embeddings\n\n' +
+      'This action CANNOT be undone. Are you sure?'
+    )
+    
+    if (!confirmed) return
+    
+    const doubleConfirm = window.confirm(
+      'Are you ABSOLUTELY sure? Click OK to proceed with resetting all memories.'
+    )
+    
+    if (!doubleConfirm) return
+    
+    setIsResetting(true)
+    const toastId = toast.loading('Resetting all memories...')
+    
+    try {
+      const response = await fetchWithAuth(`${API_BASE}/api/reset-all`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        toast.success(
+          `Memories reset complete! Deleted ${result.details.threads_deleted} threads.`,
+          { id: toastId }
+        )
+        setThreads([])
+        onSelectThread(null)
+        onDataReset?.()
+      } else {
+        const error = await response.json()
+        toast.error(`Reset failed: ${error.detail}`, { id: toastId })
+      }
+    } catch (error) {
+      toast.error('Reset failed. Please try again.', { id: toastId })
+    } finally {
+      setIsResetting(false)
+    }
   }
 
   return (
@@ -268,20 +322,75 @@ export default function ThreadSidebar({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-3 border-t border-gray-700 text-xs text-gray-500">
-          {isPersistent ? (
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              Synced to Supabase
-            </span>
-          ) : (
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-              Session only
-            </span>
-          )}
+        {/* Settings Section */}
+        <div className="p-3 border-t border-gray-700 space-y-3">
+          {/* Sync Status */}
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-gray-500">
+              {isPersistent ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  Synced to Supabase
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                  Session only
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Reset All Memories Button */}
+          <button
+            onClick={handleResetAll}
+            disabled={isResetting}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-red-400 border border-red-800/50 rounded-lg hover:bg-red-900/20 hover:border-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isResetting ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Resetting...
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-3 h-3" />
+                Reset All Memories
+              </>
+            )}
+          </button>
         </div>
+        
+        {/* User Profile Section */}
+        {userEmail && (
+          <div className="p-3 border-t border-gray-700/50 bg-gray-800/30">
+            <div className="flex items-center gap-3 mb-3">
+              {/* Avatar with initial */}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm shadow-lg">
+                {userEmail.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate" title={userEmail}>
+                  {userEmail.split('@')[0]}
+                </p>
+                <p className="text-xs text-gray-400 truncate" title={userEmail}>
+                  {userEmail}
+                </p>
+              </div>
+            </div>
+            
+            {/* Sign Out Button */}
+            {onSignOut && (
+              <button
+                onClick={onSignOut}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-300 bg-gray-700/50 rounded-lg hover:bg-gray-700 hover:text-white transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </>
   )

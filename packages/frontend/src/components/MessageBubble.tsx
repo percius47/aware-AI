@@ -27,6 +27,37 @@ function TypingIndicator() {
   )
 }
 
+// Helper to fix numbered list formatting where numbers are on separate lines
+function fixNumberedLists(content: string): string {
+  if (!content) return content
+  
+  // Pattern: number followed by period, then newline(s), then content
+  // Convert "1.\n**Title**" or "1.\nTitle" to "1. **Title**" or "1. Title"
+  
+  let fixed = content
+  
+  // Fix: "1.\n**Bold" or "1.\n\n**Bold" - number on its own line, followed by bold text
+  fixed = fixed.replace(/(\d+)\.\s*[\r\n]+\s*(\*\*)/g, '$1. $2')
+  
+  // Fix: "1.\nText" or "1.\n\nText" - number on its own line, followed by text starting with letter
+  fixed = fixed.replace(/(\d+)\.\s*[\r\n]+\s*([A-Za-z])/g, '$1. $2')
+  
+  // Fix: Lines that are just a number like "1." or "2." with nothing else
+  fixed = fixed.replace(/^(\d+)\.\s*$/gm, '')
+  
+  // Fix: Numbers at end of a line followed by content on next line
+  // "...sentence.\n1.\n**Title**" → "...sentence.\n1. **Title**"
+  fixed = fixed.replace(/(\d+)\.\s*\n+(\*\*[^\n]+)/g, '$1. $2')
+  
+  // Clean up any resulting excessive blank lines
+  fixed = fixed.replace(/\n{3,}/g, '\n\n')
+  
+  // Trim leading/trailing whitespace from each line while preserving structure
+  fixed = fixed.split('\n').map(line => line.trimEnd()).join('\n')
+  
+  return fixed
+}
+
 // Helper to format relative time
 function formatRelativeTime(timestamp: string): string {
   const date = new Date(timestamp)
@@ -158,6 +189,7 @@ export default function MessageBubble({ message, isStreaming, isTyping }: Messag
               : 'dark:prose-invert'
           }`}>
             <ReactMarkdown
+              children={fixNumberedLists(message.content)}
               components={{
                 code({ className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '')
@@ -226,9 +258,7 @@ export default function MessageBubble({ message, isStreaming, isTyping }: Messag
                   <em className="italic">{children}</em>
                 ),
               }}
-            >
-              {message.content}
-            </ReactMarkdown>
+            />
           </div>
           )}
           

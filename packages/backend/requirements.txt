@@ -2,8 +2,6 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-dotenv==1.0.0
 openai>=1.33.0,<2.0.0
-mem0ai==0.1.0
-chromadb>=0.5.0
 langchain==0.0.350
 langchain-openai==0.0.2
 pydantic>=2.6.0
@@ -18,3 +16,5 @@ Pillow>=10.2.0
 numpy>=1.26.0
 tiktoken==0.5.2
 supabase>=2.0.0
+python-jose[cryptography]>=3.3.0
+httpx>=0.25.0

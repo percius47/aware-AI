@@ -101,7 +101,7 @@ def setup_logging(level: int = logging.INFO):
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('httpcore').setLevel(logging.WARNING)
     logging.getLogger('openai').setLevel(logging.WARNING)
-    logging.getLogger('chromadb').setLevel(logging.WARNING)
+    logging.getLogger('supabase').setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
